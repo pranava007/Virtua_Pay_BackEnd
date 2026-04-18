@@ -15,6 +15,10 @@ export const authCallback = async (req, res) => {
   try {
     const { shop, code } = req.query;
 
+    if (!shop || !code) {
+      return res.status(400).send("Missing shop or code ❌");
+    }
+
     const data = await getAccessToken(shop, code);
 
     await Store.findOneAndUpdate(
@@ -24,7 +28,9 @@ export const authCallback = async (req, res) => {
     );
 
     res.send("App Installed Successfully ✅");
+
   } catch (err) {
+    console.error(err);
     res.status(500).send(err.message);
   }
 };
