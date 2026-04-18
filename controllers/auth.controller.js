@@ -4,6 +4,23 @@ import { getAccessToken } from "../services/shopify.service.js";
 import Store from "../models/Store.model.js";
 import crypto from "crypto";
 
+
+const validateHmac = (query, secret) => {
+  const { hmac, ...rest } = query;
+
+  const message = Object.keys(rest)
+    .sort()
+    .map((key) => `${key}=${rest[key]}`)
+    .join("&");
+
+  const generatedHash = crypto
+    .createHmac("sha256", secret)
+    .update(message)
+    .digest("hex");
+
+  return generatedHash === hmac;
+};
+
 export const installApp = (req, res) => {
   const { shop } = req.query;
 
@@ -15,22 +32,17 @@ export const installApp = (req, res) => {
 
 export const authCallback = async (req, res) => {
   try {
-    const { shop, code, hmac, ...rest } = req.query;
+    const { shop, code } = req.query;
+
+    // ✅ HMAC validation
+    const isValid = validateHmac(req.query, process.env.SHOPIFY_API_SECRET);
+
+    if (!isValid) {
+      return res.status(400).send("HMAC validation failed ❌");
+    }
 
     if (!shop || !code) {
       return res.status(400).send("Missing shop or code ❌");
-    }
-
-    // 🔥 HMAC VALIDATION
-    const message = new URLSearchParams(rest).toString();
-
-    const generatedHash = crypto
-      .createHmac("sha256", process.env.SHOPIFY_API_SECRET)
-      .update(message)
-      .digest("hex");
-
-    if (generatedHash !== hmac) {
-      return res.status(400).send("HMAC validation failed ❌");
     }
 
     const data = await getAccessToken(shop, code);
@@ -44,7 +56,7 @@ export const authCallback = async (req, res) => {
     res.send("App Installed Successfully ✅");
 
   } catch (err) {
-    console.error("❌ ERROR:", err);
+    console.error(err);
     res.status(500).send(err.message);
   }
 };
