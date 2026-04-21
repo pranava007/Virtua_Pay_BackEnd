@@ -6,10 +6,10 @@ import { protect, authorize } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// router.get("/config", protect, authorize("admin"), getGatewayConfig);
-// router.patch("/config", protect, authorize("admin"), updateGatewayConfig);
+router.get("/config", protect, authorize("admin"), getGatewayConfig);
+router.patch("/config", protect, authorize("admin"), updateGatewayConfig);
 
-router.patch("/config", updateGatewayConfig);
-router.get("/config", getGatewayConfig);
+// router.patch("/config", updateGatewayConfig);
+// router.get("/config", getGatewayConfig);
 
 export default router;
