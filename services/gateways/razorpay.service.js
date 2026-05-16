@@ -1,13 +1,13 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY,
-  key_secret: process.env.RAZORPAY_SECRET
-});
-
 // 🔥 CREATE ORDER
-export const createRazorpayOrder = async (amount, orderId) => {
+export const createRazorpayOrder = async (amount, orderId, config = {}) => {
+  const key_id = config.keyId || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY;
+  const key_secret = config.keySecret || process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET;
+
+  const razorpay = new Razorpay({ key_id, key_secret });
+
   const options = {
     amount: amount * 100,
     currency: "INR",
@@ -21,18 +21,36 @@ export const createRazorpayOrder = async (amount, orderId) => {
     orderId: order.id,
     amount: order.amount,
     currency: order.currency,
-    key: process.env.RAZORPAY_KEY
+    key: key_id
   };
 };
 
 // 🔥 VERIFY PAYMENT
-export const verifyRazorpayPayment = (data) => {
-  const body = data.order_id + "|" + data.payment_id;
+export const verifyRazorpayPayment = (data, config = {}) => {
+  const key_secret = config.keySecret || process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET;
+  
+  // Razorpay sends these names in the response
+  const orderId = data.razorpay_order_id || data.order_id;
+  const paymentId = data.razorpay_payment_id || data.payment_id;
+  const signature = data.razorpay_signature || data.signature;
+
+  if (!orderId || !paymentId || !signature) {
+    console.error("[Razorpay Verify] Missing required fields:", { orderId, paymentId, signature });
+    return false;
+  }
+
+  const body = orderId + "|" + paymentId;
 
   const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_SECRET)
+    .createHmac("sha256", key_secret)
     .update(body)
     .digest("hex");
 
-  return expected === data.signature;
+  const isValid = expected === signature;
+  
+  if (!isValid) {
+    console.warn("[Razorpay Verify] Signature Mismatch!");
+  }
+
+  return isValid;
 };

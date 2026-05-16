@@ -5,6 +5,7 @@ import Store from "../models/Store.model.js";
 import crypto from "crypto";
 
 import User from "../models/User.model.js";
+import GatewayConfig from "../models/GatewayConfig.model.js";
 import jwt from "jsonwebtoken";
 
 
@@ -79,7 +80,7 @@ const generateToken = (user) => {
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, adminId } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -90,16 +91,23 @@ export const register = async (req, res) => {
       username,
       email,
       password,
+      adminId: adminId || null,
     });
 
     if (user) {
+      // ✅ Create default GatewayConfig for the new merchant
+      await GatewayConfig.create({
+        merchantId: user._id,
+        activeGateway: "razorpay" // Default gateway
+      });
+
       res.status(201).json({
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
-        // token: generateToken(user._id),
-          token: generateToken(user), // ✅
+        adminId: user.adminId,
+        token: generateToken(user),
       });
     } else {
       res.status(400).json({ error: "Invalid user data" });
@@ -121,9 +129,8 @@ export const login = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        // token: generateToken(user._id),
-          token: generateToken(user), // ✅
-
+        adminId: user.adminId,
+        token: generateToken(user),
       });
     } else {
       res.status(401).json({ error: "Invalid email or password" });
@@ -142,6 +149,7 @@ export const getMe = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        websiteUrl: user.websiteUrl || null,
       });
     } else {
       res.status(404).json({ error: "User not found" });
@@ -151,4 +159,35 @@ export const getMe = async (req, res) => {
   }
 };
 
+export const getApiKey = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.json({ apiKey: user.apiKey || null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
+export const generateApiKey = async (req, res) => {
+  try {
+    const apiKey = `vp_${crypto.randomBytes(24).toString("hex")}`;
+    
+    await User.findByIdAndUpdate(req.user.id, { apiKey });
+    
+    res.json({ apiKey });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateWebsite = async (req, res) => {
+  try {
+    const { websiteUrl } = req.body;
+    
+    await User.findByIdAndUpdate(req.user.id, { websiteUrl });
+    
+    res.json({ success: true, websiteUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

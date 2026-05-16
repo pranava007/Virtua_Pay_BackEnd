@@ -84,3 +84,75 @@ export const verifyPaymentController = async (req, res) => {
     res.status(500).send(err.message);
   }
 };
+
+// 🔥 STEP 4: PayU Redirect (Bypasses 403 Forbidden)
+export const payuRedirectController = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await Order.findById(orderId);
+    
+    if (!order) return res.status(404).send("Order not found");
+
+    // Re-route to get fresh PayU parameters
+    const payment = await routePayment(
+      order.amount,
+      order._id,
+      order.merchantId || order.storeId
+    );
+
+    if (payment.gateway !== "payu") {
+      return res.status(400).send("Invalid gateway for this redirect");
+    }
+
+    // Render an auto-submitting form
+    const formHtml = `
+      <html>
+        <body onload="document.forms[0].submit()">
+          <p>Redirecting to PayU India secure payment gateway...</p>
+          <form action="${payment.actionUrl}" method="POST">
+            ${Object.entries(payment.params).map(([key, value]) => 
+              `<input type="hidden" name="${key}" value="${value}" />`
+            ).join('')}
+          </form>
+        </body>
+      </html>
+    `;
+
+    res.send(formHtml);
+
+  } catch (err) {
+    console.error("PayU Redirect Error:", err.message);
+    res.status(500).send("Payment redirection failed");
+  }
+};
+
+// 🔥 STEP 5: PayU Return Handler (Updates DB & Redirects Back to Store)
+export const payuReturnController = async (req, res) => {
+  try {
+    const data = { ...req.body, ...req.query };
+    const orderId = data.txnid;
+    
+    console.log(`[PayU Return] Received data for order: ${orderId}, Status: ${data.status}`);
+
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).send("Order not found");
+
+    // 1. Verify Status
+    if (data.status === "success") {
+      order.status = "paid";
+      order.paymentId = data.mihpayid; // PayU Transaction ID
+      await order.save();
+      console.log(`[PayU Success] Order ${orderId} marked as PAID`);
+    } else {
+      console.warn(`[PayU Failure] Order ${orderId} failed or cancelled`);
+    }
+
+    // 2. Redirect back to the Store frontend
+    // Use Port 3000 as requested by user
+    res.redirect(`http://localhost:3000/payment-status?status=${data.status}&orderId=${orderId}`);
+
+  } catch (err) {
+    console.error("PayU Return Error:", err.message);
+    res.redirect(`http://localhost:5173/payment-status?status=error`);
+  }
+};

@@ -29,14 +29,34 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    apiKey: {
+      type: String,
+      unique: true,
+      sparse: true, // Allows multiple null values
+    },
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    websiteUrl: {
+      type: String,
+      default: null,
+    },
+    payoutConfig: {
+      razorpay: {
+        keyId: String,
+        keySecret: String,
+      },
+    },
   },
   { timestamps: true }
 );
 
 // Encrypt password before saving
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   if (!this.isModified("password")) {
-    next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

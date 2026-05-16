@@ -10,6 +10,8 @@ const orderSchema = new mongoose.Schema({
   items: Array,
   status: String,
   paymentId: String,
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  returnUrl: String,
 }, { timestamps: true });
 
 export default mongoose.model("Order", orderSchema);
