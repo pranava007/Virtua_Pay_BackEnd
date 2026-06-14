@@ -19,8 +19,7 @@ const app = express();
 // ✅ CORS FIX
 app.use(cors({
   origin: [
-    "http://localhost:5173",
-    "https://virtuapay.netlify.app"
+    "https://virtuapayi.netlify.app"
   ],
   credentials: true
 }));
