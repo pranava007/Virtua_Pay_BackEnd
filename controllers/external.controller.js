@@ -70,7 +70,7 @@ export const createExternalOrder = async (req, res) => {
 
     // 2. Return the hosted checkout URL
     // In production, use process.env.FRONTEND_URL
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl = process.env.FRONTEND_URL;
     const checkoutUrl = `${frontendUrl}/checkout/${order._id}`;
 
     res.status(201).json({
@@ -110,6 +110,11 @@ export const getCheckoutDetails = async (req, res) => {
     // Get the Admin's active gateway config
     const admin = await User.findOne({ role: "admin" });
     const config = await GatewayConfig.findOne({ merchantId: admin._id });
+
+    console.log("Config:", config);
+    console.log("RAZORPAY_KEY_ID =", process.env.RAZORPAY_KEY_ID);
+    console.log("RAZORPAY_KEY =", process.env.RAZORPAY_KEY);
+
 
     if (!config) {
       return res.status(400).json({ error: "Payment gateway not configured by Admin" });
